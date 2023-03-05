@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # coding=utf-8
-# Copyright 2021 Junxiong Wang and The HuggingFace Inc. team. All rights reserved.
+# Copyright 2021 The HuggingFace Inc. team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,31 +22,37 @@ import sys
 import time
 from dataclasses import dataclass, field
 from itertools import chain
+from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple
 
 import datasets
+import flax
 import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
 import wandb
-import transformers
 from datasets import load_dataset, load_metric
 from flax import struct, traverse_util
 from flax.jax_utils import replicate, unreplicate
 from flax.training import train_state
 from flax.training.common_utils import get_metrics, onehot, shard
+from huggingface_hub import Repository
 from tqdm import tqdm
+
 from BiGS.configuration_bigs import BiGSConfig
 from BiGS.modeling_flax_bigs import FlaxBiGSForSequenceClassification
+
+import transformers
 from transformers import (
+    AutoTokenizer,
+    FlaxAutoModelForSequenceClassification,
     HfArgumentParser,
     PretrainedConfig,
     TrainingArguments,
-    AutoTokenizer,
     is_tensorboard_available,
 )
-from transformers.utils import check_min_version
+from transformers.utils import check_min_version, get_full_repo_name
 
 logger = logging.getLogger(__name__)
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
@@ -72,8 +78,6 @@ task_to_keys = {
 @dataclass
 class GlueTrainingArguments(TrainingArguments):
     warmup_rate: float = field(default=0.1, metadata={"help": "The warmup rate."})
-
-    do_predict: bool = field(default=False, metadata={"help": "Whether to predict."})
 
 
 @dataclass
@@ -194,11 +198,10 @@ class DataTrainingArguments:
 
 
 def create_train_state(
-        model: FlaxBiGSForSequenceClassification,
-        learning_rate_fn: Callable[[int], float],
+        model: FlaxAutoModelForSequenceClassification,
+        tx,
         is_regression: bool,
-        num_labels: int,
-        weight_decay: float,
+        num_labels: int
 ) -> train_state.TrainState:
     """Create initial training state."""
 
@@ -225,9 +228,9 @@ def create_train_state(
         flat_mask = {path: (path[-1] != "bias" and path[-2:] != ("LayerNorm", "scale")) for path in flat_params}
         return traverse_util.unflatten_dict(flat_mask)
 
-    tx = optax.adamw(
-        learning_rate=learning_rate_fn, b1=0.9, b2=0.999, eps=1e-6, weight_decay=weight_decay, mask=decay_mask_fn
-    )
+    # tx = optax.adamw(
+    #     learning_rate=learning_rate_fn, b1=0.9, b2=0.999, eps=1e-6, weight_decay=weight_decay, mask=decay_mask_fn
+    # )
 
     if is_regression:
 
@@ -282,6 +285,7 @@ def glue_train_data_collator(rng: PRNGKey, dataset: Dataset, batch_size: int):
         batch = dataset[perm]
         batch = {k: np.array(v) for k, v in batch.items()}
         batch = shard(batch)
+
         yield batch
 
 
@@ -291,7 +295,23 @@ def glue_eval_data_collator(dataset: Dataset, batch_size: int):
         batch = dataset[i * batch_size: (i + 1) * batch_size]
         batch = {k: np.array(v) for k, v in batch.items()}
         batch = shard(batch)
+
         yield batch
+
+
+# As we're using Flax, we also write a utility function to return a default TrainState object.
+# This function initializes model parameters, as well as our optimizer. Note that for S4 models,
+# we use a custom learning rate for parameters of the S4 kernel (lr = 0.001, no weight decay).
+def map_nested_fn(fn):
+    """Recursively apply `fn to the key-value pairs of a nested dict / pytree."""
+
+    def map_fn(nested_dict):
+        return {
+            k: (map_fn(v) if hasattr(v, "keys") else fn(k, v))
+            for k, v in nested_dict.items()
+        }
+
+    return map_fn
 
 
 def main():
@@ -317,6 +337,16 @@ def main():
     else:
         datasets.utils.logging.set_verbosity_error()
         transformers.utils.logging.set_verbosity_error()
+
+    # Handle the repository creation
+    if training_args.push_to_hub:
+        if training_args.hub_model_id is None:
+            repo_name = get_full_repo_name(
+                Path(training_args.output_dir).absolute().name, token=training_args.hub_token
+            )
+        else:
+            repo_name = training_args.hub_model_id
+        repo = Repository(training_args.output_dir, clone_from=repo_name)
 
     # Get the datasets: you can either provide your own CSV/JSON training and evaluation files (see below)
     # or specify a GLUE benchmark task (the dataset will be downloaded automatically from the datasets Hub).
@@ -370,8 +400,8 @@ def main():
         else:
             num_labels = 1
     else:
-        if data_args.dataset_config_name == "contract_nli":
-            label_list = raw_datasets["train"].unique("output")
+        if data_args.dataset_name == "hyperpartisan_news_detection":
+            label_list = raw_datasets["train"].unique("hyperpartisan")
             label_list.sort()  # Let's sort it for determinism
             num_labels = len(label_list)
             is_regression = 0
@@ -409,8 +439,6 @@ def main():
     # Preprocessing the datasets
     if data_args.task_name is not None:
         sentence1_key, sentence2_key = task_to_keys[data_args.task_name]
-    elif data_args.dataset_name == "tau/scrolls":
-        sentence1_key, sentence2_key = "input", None
     else:
         # Again, we try to have some nice defaults but don't hesitate to tweak to your use case.
         non_label_column_names = [name for name in raw_datasets["train"].column_names if name != "label"]
@@ -446,27 +474,29 @@ def main():
     elif data_args.task_name is None:
         label_to_id = {v: i for i, v in enumerate(label_list)}
 
-    print("label_to_id:", label_to_id)
-
     def preprocess_function(examples):
         # Tokenize the texts
         if data_args.dataset_name == "tau/scrolls" and data_args.dataset_config_name == "contract_nli":
             contexts1 = [example.split("\n\n")[0].strip() for example in examples[sentence1_key]]
             contexts2 = [example.split("\n\n")[1].strip() for example in examples[sentence1_key]]
             texts = ((contexts1, contexts2))
+            result = tokenizer(*texts, padding="max_length", max_length=data_args.max_seq_length, truncation=True)
         else:
-            texts = (
-                (examples[sentence1_key],) if sentence2_key is None else (
-                    examples[sentence1_key], examples[sentence2_key])
-            )
-        result = tokenizer(*texts, padding="max_length", max_length=data_args.max_seq_length, truncation=True)
-        if data_args.dataset_name == "tau/scrolls" and data_args.dataset_config_name == "contract_nli":
-            result['labels'] = [(label_to_id[out] if out is not None else -1) for out in examples['output']]
+            if sentence2_key is not None:
+                texts = [examples[sentence1_key][idx] + ' [CLS], ' + examples[sentence2_key][idx] for idx in
+                         range(len(examples[sentence1_key]))]
+            else:
+                texts = [examples[sentence1_key][idx] for idx in range(len(examples[sentence1_key]))]
+            # tokenizer texts
+            result = tokenizer(texts, padding="max_length", max_length=data_args.max_seq_length, truncation=True)
+        if data_args.dataset_name == "hyperpartisan_news_detection":
+            result['labels'] = [int(example_label) for example_label in examples['hyperpartisan']]
         else:
             if "label" in examples:
                 if label_to_id is not None:
                     # Map labels to IDs (not necessary for GLUE tasks)
-                    result["labels"] = [(label_to_id[example_label] if example_label != -1 else -1) for example_label in examples["label"]]
+                    result["labels"] = [(label_to_id[example_label] if example_label != -1 else -1) for example_label in
+                                        examples["label"]]
                 else:
                     # In all cases, rename the column to labels because the model will expect that.
                     result["labels"] = examples["label"]
@@ -479,6 +509,12 @@ def main():
     train_dataset = processed_datasets["train"]
     if data_args.dataset_name == "imdb":
         eval_dataset = processed_datasets["test"]
+    elif data_args.dataset_name == "hyperpartisan_news_detection":
+        train_testvalid = train_dataset.train_test_split(test_size=0.2)
+        test_valid = train_testvalid["test"].train_test_split(test_size=0.5)
+        train_dataset = train_testvalid["train"]
+        eval_dataset = test_valid["train"]
+        # test_dataset = test_valid["test"]
     else:
         eval_dataset = processed_datasets["validation_matched" if data_args.task_name == "mnli" else "validation"]
 
@@ -533,7 +569,7 @@ def main():
     train_batch_size = training_args.per_device_train_batch_size * jax.local_device_count()
     eval_batch_size = training_args.per_device_eval_batch_size * jax.local_device_count()
 
-    learning_rate_fn = create_learning_rate_fn(
+    schedule_fn = create_learning_rate_fn(
         len(train_dataset),
         train_batch_size,
         training_args.num_train_epochs,
@@ -541,8 +577,36 @@ def main():
         training_args.learning_rate,
     )
 
+    lr_layer = {
+        "A_re": 0,
+        "A_im": 0,
+        "C": 0,
+        "D": 0,
+        "log_step": 0,
+    }
+    print("lr_layer:", lr_layer.keys())
+
+    def flattened_traversal(fn):
+        """Returns function that is called with `(path, param)` instead of pytree."""
+
+        def mask(tree):
+            flat = flax.traverse_util.flatten_dict(tree)
+            for k, v in flat.items():
+                print(k)
+            mfun = flax.traverse_util.unflatten_dict({k: fn(k, v) for k, v in flat.items()})
+            return mfun
+
+        return mask
+
+    # Freezes all but the last layer.
+    label_fn = flattened_traversal(lambda path, _: 'none' if path[-1] in lr_layer.keys() else 'adamw')
+
+    tx = optax.multi_transform(
+        {'adamw': optax.adamw(learning_rate=schedule_fn, weight_decay=training_args.weight_decay),
+         'none': optax.set_to_zero()}, label_fn)
+
     state = create_train_state(
-        model, learning_rate_fn, is_regression, num_labels=num_labels, weight_decay=training_args.weight_decay
+        model, tx, is_regression, num_labels=num_labels
     )
 
     # define step functions
@@ -564,7 +628,7 @@ def main():
         accuracy = jnp.sum(jnp.equal(jnp.argmax(logits, axis=-1), targets)) / jnp.size(targets)
         new_state = state.apply_gradients(grads=grad)
         metrics = jax.lax.pmean(
-            {"train loss": loss, "train accuracy": accuracy, "learning_rate": learning_rate_fn(state.step)},
+            {"train loss": loss, "train accuracy": accuracy, "learning_rate": schedule_fn(state.step)},
             axis_name="batch")
         return new_state, metrics, new_dropout_rng
 
@@ -576,29 +640,24 @@ def main():
         loss = state.loss_fn(logits, targets)
         accuracy = jnp.sum(jnp.equal(jnp.argmax(logits, axis=-1), targets)) / jnp.size(targets)
         eval_additional_metrics = jax.lax.pmean({"test loss": loss, "test accuracy": accuracy}, axis_name="batch")
+
         return state.logits_fn(logits), eval_additional_metrics
 
     p_eval_step = jax.pmap(eval_step, axis_name="batch")
 
-    def test_step(state, batch):
-        logits = state.apply_fn(**batch, params=state.params, train=False)[0]
-        return state.logits_fn(logits)
-
-    p_test_step = jax.pmap(test_step, axis_name="batch")
-
-    if data_args.task_name is not None:
-        wandb.init(project=f"{data_args.task_name}_BiGS")
-    elif data_args.dataset_name == "tau/scrolls":
-        wandb.init(project=f"{data_args.dataset_config_name}_BiGS")
-    elif data_args.dataset_name is not None:
-        wandb.init(project=f"{data_args.dataset_name}_BiGS")
-
-    wandb.config.update(training_args)
-
     if data_args.task_name is not None:
         metric = load_metric("glue", data_args.task_name)
+    elif data_args.dataset_name == "hyperpartisan_news_detection":
+        metric = load_metric("f1")
     else:
         metric = load_metric("accuracy")
+
+    if data_args.task_name is not None:
+        wandb.init(project=f"{data_args.task_name}_BiGS_freeze_kernel")
+    elif data_args.dataset_name is not None:
+        wandb.init(project=f"{data_args.dataset_name}_BiGS_freeze_kernel")
+
+    wandb.config.update(training_args)
 
     logger.info(f"===== Starting training ({num_epochs} epochs) =====")
     train_time = 0
@@ -658,13 +717,14 @@ def main():
                             "Step": cur_step,
                             "Train Loss": train_metric['train loss'],
                             "Train Accuracy": train_metric['train accuracy'],
-                            "Learning Rate": train_metric['learning_rate']
+                            'Learning Rate': train_metric['learning_rate']
                         }
                     )
 
                 train_metrics = []
 
             if (cur_step % training_args.eval_steps == 0 or cur_step % steps_per_epoch == 0) and cur_step > 0:
+
                 # evaluate
                 eval_loader = glue_eval_data_collator(eval_dataset, eval_batch_size)
                 eval_additional_metrics = []
@@ -696,7 +756,6 @@ def main():
                 eval_metric = metric.compute()
 
                 logger.info(f"Step... ({cur_step}/{total_steps} | Eval metrics: {eval_metric})")
-                print("task accuracy:", eval_metric.items())
 
                 if data_args.task_name is None:
                     dict_eval_metric = {f"eval_{metric_name}": value for metric_name, value in
@@ -715,15 +774,18 @@ def main():
                 if has_tensorboard and jax.process_index() == 0:
                     write_eval_metric(summary_writer, eval_metric, cur_step)
 
+            if (cur_step % training_args.save_steps == 0 and cur_step > 0) or (cur_step == total_steps):
+                # save checkpoint after each epoch and push checkpoint to the hub
+                if jax.process_index() == 0:
+                    params = jax.device_get(unreplicate(state.params))
+                    model.save_pretrained(training_args.output_dir, params=params)
+                    tokenizer.save_pretrained(training_args.output_dir)
+                    if training_args.push_to_hub:
+                        repo.push_to_hub(commit_message=f"Saving weights and logs of step {cur_step}", blocking=False)
             epochs.desc = f"Epoch ... {epoch + 1}/{num_epochs}"
 
     # save the eval metrics in json
     if jax.process_index() == 0:
-        # save model
-        params = jax.device_get(unreplicate(state.params))
-        model.save_pretrained(training_args.output_dir, params=params)
-        tokenizer.save_pretrained(training_args.output_dir)
-        # save final result
         eval_metric = {f"eval_{metric_name}": value for metric_name, value in eval_metric.items()}
         path = os.path.join(training_args.output_dir, "eval_results.json")
         with open(path, "w") as f:
@@ -737,35 +799,25 @@ def main():
         predict_datasets = [predict_dataset]
         if data_args.task_name == "mnli":
             tasks.append("mnli-mm")
-            predict_datasets.append(processed_datasets["test_mismatched"])
+            predict_datasets.append(raw_datasets["test_mismatched"])
 
-        for current_predict_dataset, task in zip(predict_datasets, tasks):
-            if "labels" in current_predict_dataset.features:
-                # Removing the `label` columns because it contains -1 and Trainer won't like that.
-                current_predict_dataset = current_predict_dataset.remove_columns("labels")
-            predict_loader = glue_eval_data_collator(current_predict_dataset, eval_batch_size)
-            predictions = jnp.empty((0), dtype=jnp.int8)
+        for predict_dataset, task in zip(predict_datasets, tasks):
+            # Removing the `label` columns because it contains -1 and Trainer won't like that.
+            predict_dataset = predict_dataset.remove_columns("label")
+            predict_loader = glue_eval_data_collator(predict_dataset, eval_batch_size)
+            predictions = []
             for batch in tqdm(
                     predict_loader,
-                    total=len(current_predict_dataset) // eval_batch_size,
+                    total=len(predict_dataset) // eval_batch_size,
                     desc="Predict ...",
                     position=2,
             ):
-                batch_prediction = p_test_step(state, batch)
-                predictions = jnp.concatenate((predictions, batch_prediction.reshape(-1)))
+                labels = batch.pop("labels")
+                batch_predictions = p_eval_step(state, batch)
+                predictions = jnp.vstack([predictions, batch_predictions]) if predictions.size else batch_predictions
 
-            # evaluate also on leftover examples (not divisible by batch_size)
-            num_leftover_samples = len(current_predict_dataset) % eval_batch_size
-
-            # make sure leftover batch is evaluated on one device
-            if num_leftover_samples > 0 and jax.process_index() == 0:
-                # take leftover samples
-                batch = current_predict_dataset[-num_leftover_samples:]
-                batch = {k: np.array(v) for k, v in batch.items()}
-
-                master_state = unreplicate(state)
-                logits = master_state.apply_fn(**batch, params=master_state.params, train=False)[0]
-                predictions = jnp.concatenate((predictions, master_state.logits_fn(logits)))
+                # predictions = trainer.predict(predict_dataset, metric_key_prefix="predict").predictions
+            predictions = np.squeeze(predictions) if is_regression else np.argmax(predictions, axis=1)
 
             output_predict_file = os.path.join(training_args.output_dir, f"predict_results_{task}.txt")
             if jax.process_index() == 0:
