@@ -50,7 +50,7 @@ See [pretrain.md](pretrain.md)
 
 ### GLUE
 
-See [GLUE.md](GLUE.md]) and [GLUE_freeze.md](GLUE_freeze.md])
+See [GLUE.md](GLUE.md) and [GLUE_freeze.md](GLUE_freeze.md)
 
 # Citation
 
