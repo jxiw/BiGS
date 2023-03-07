@@ -104,6 +104,7 @@ class BiGSConfig(PretrainedConfig):
             use_cache=True,
             classifier_dropout=None,
             num_ssm=64,
+            num_ssm_heads=16,
             pre_norm=True,
             decode=False,
             pooler_type="non_padding_mean",
@@ -128,3 +129,4 @@ class BiGSConfig(PretrainedConfig):
         self.pre_norm = pre_norm
         self.decode = decode
         self.pooler_type = pooler_type
+        self.num_ssm_heads = num_ssm_heads

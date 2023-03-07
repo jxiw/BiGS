@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2021. All rights reserved.
+# Copyright 2022 Junxiong Wang and The HuggingFace Inc. team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Flax BiGS model. """
+""" Flax Multi-head BiGS model. """
 
 from functools import partial
 from typing import Callable, Optional, Tuple
@@ -25,7 +25,6 @@ import numpy as np
 from flax.core.frozen_dict import FrozenDict
 from jax.nn.initializers import normal
 from jax.numpy.linalg import eigh
-from jax.scipy.signal import convolve
 
 from .configuration_bigs import BiGSConfig
 from transformers.modeling_flax_outputs import (
@@ -41,6 +40,7 @@ from transformers.modeling_flax_outputs import (
 from transformers.modeling_flax_utils import (
     ACT2FN,
     FlaxPreTrainedModel,
+    append_call_sample_docstring,
     append_replace_return_docstrings,
     overwrite_call_docstring,
 )
@@ -135,15 +135,12 @@ class FlaxBiGSForPreTrainingOutput(ModelOutput):
     hidden_states: Optional[Tuple[jnp.ndarray]] = None
 
 
-def causal_convolution(u, K, nofft=False):
-    if nofft:
-        return convolve(u, K, mode="full")[: u.shape[0]]
-    else:
-        assert K.shape[0] == u.shape[0]
-        ud = jnp.fft.rfft(jnp.pad(u, (0, K.shape[0])))
-        Kd = jnp.fft.rfft(jnp.pad(K, (0, u.shape[0])))
-        out = ud * Kd
-        return jnp.fft.irfft(out)[: u.shape[0]]
+def causal_convolution(u, K):
+    assert K.shape[0] == u.shape[0]
+    ud = jnp.fft.rfft(jnp.pad(u, (0, K.shape[0])))
+    Kd = jnp.fft.rfft(jnp.pad(K, (0, u.shape[0])))
+    out = ud * Kd
+    return jnp.fft.irfft(out)[: u.shape[0]]
 
 
 def log_step_initializer(dt_min=0.01, dt_max=1):
@@ -202,23 +199,27 @@ def scan_SSM(Ab, Bb, Cb, u, x0):
     return jax.lax.scan(step, x0, u)
 
 
-def hippo_initializer(N):
+def hippo_initializer(H, N):
     Lambda, P, B, _ = make_DPLR_HiPPO(N)
 
+    Lambda = jnp.tile(Lambda, (H, 1))
+    P = jnp.tile(P, (H, 1))
+    B = jnp.tile(B, (H, 1))
+
     def init_Lambda_real(key, shape):
-        assert shape == (N,)
+        assert shape == (H, N,)
         return Lambda.real
 
     def init_Lambda_imag(key, shape):
-        assert shape == (N,)
+        assert shape == (H, N,)
         return Lambda.imag
 
     def init_P(key, shape):
-        assert shape == (N,)
+        assert shape == (H, N,)
         return P
 
     def init_B(key, shape):
-        assert shape == (N,)
+        assert shape == (H, N,)
         return B
 
     return init_Lambda_real, init_Lambda_imag, init_P, init_B
@@ -242,8 +243,8 @@ def s4d_kernel(C, A, L, step):
 @partial(jax.jit, static_argnums=2)
 def s4d_kernel_zoh(C, A, L, step):
     """ A version of the kernel for B=1 and ZOH """
-    kernel_l = lambda l: (C * (jnp.exp(step * A) - 1) / A * jnp.exp(l * step * A)).sum()
-    return jax.vmap(kernel_l)(jnp.arange(L)).ravel().real
+    kernel_l = lambda l: jnp.sum(C * (jnp.exp(step * A) - 1) / A * jnp.exp(l * step * A), axis=-1)
+    return jax.vmap(kernel_l)(jnp.arange(L)).real
 
 
 def discretize(A, B, step, mode="zoh"):
@@ -265,9 +266,10 @@ def s4d_ssm(C, A, L, step):
 class S4dLayer(nn.Module):
     N: int
     l_max: int
+    num_ssm_heads: int
     decode: bool = False
 
-    # Special parameters with multiplicative factor on lr and no weight decay (handled by main train script)
+    # The full training script has optimizer hooks that lower the LR on special params
     lr = {
         "A_re": 0.1,
         "A_im": 0.1,
@@ -276,16 +278,16 @@ class S4dLayer(nn.Module):
 
     def setup(self):
         # Learned Parameters
-        hippo_A_real_initializer, hippo_A_imag_initializer, _, _ = hippo_initializer(self.N)
-        self.A_re = self.param("A_re", hippo_A_real_initializer, (self.N,))
-        self.A_im = self.param("A_im", hippo_A_imag_initializer, (self.N,))
+        init_A_re, init_A_im, _, _ = hippo_initializer(self.num_ssm_heads, self.N)
+        self.A_re = self.param("A_re", init_A_re, (self.num_ssm_heads, self.N))
+        self.A_im = self.param("A_im", init_A_im, (self.num_ssm_heads, self.N))
+        # the shape of A is (num_ssm_heads, number_of_ssm)
         self.A = jnp.clip(self.A_re, None, -1e-4) + 1j * self.A_im
-        self.C = self.param("C", normal(stddev=.5 ** .5), (self.N, 2))
+        self.C = self.param("C", normal(stddev=0.5 ** 0.5), (self.num_ssm_heads, self.N, 2))
+        # the shape of C is (num_ssm_heads, number_of_ssm)
         self.C = self.C[..., 0] + 1j * self.C[..., 1]
-        self.D = self.param("D", nn.initializers.ones, (1,))
-        self.step = jnp.exp(
-            self.param("log_step", log_step_initializer(), (1,))
-        )
+        self.D = self.param("D", nn.initializers.ones, (self.num_ssm_heads, 1))
+        self.step = jnp.exp(self.param("log_step", log_step_initializer(), (self.num_ssm_heads, 1)))
         if not self.decode:
             self.K = s4d_kernel_zoh(self.C, self.A, self.l_max, self.step)
         else:
@@ -304,8 +306,29 @@ class S4dLayer(nn.Module):
             )
 
     def __call__(self, u):
+
+        def apply_convolution(u, k, d):
+            # u shape: max sentence length
+            # k shape: max sentence length
+            # d shape: a scale
+            return causal_convolution(u, k) + d * u
+
+        def apply_convolution_per_kernel(u, k, d):
+            # u shape: max sentence length, hidden size // num_ssm_heads
+            # k shape: max sentence length
+            # d shape: a scale
+            return jax.vmap(apply_convolution, in_axes=(1, None, None), out_axes=1)(u, k, d)
+
         if not self.decode:
-            return causal_convolution(u, self.K) + self.D * u
+            # shape of u is the (max sentence length, hidden size)
+            # D is (num_ssm_heads)
+            # K is (max sentence length, num_ssm_heads)
+            u = jnp.reshape(u, (self.l_max, self.num_ssm_heads, -1))
+            # u is (max sentence length, num_ssm_heads, hidden size // num_ssm_heads)
+            # D is (num_ssm_heads)
+            # K is (max sentence length, num_ssm_heads)
+            y = jax.vmap(apply_convolution_per_kernel, in_axes=(1, 1, 0), out_axes=1)(u, self.K, self.D)
+            return jnp.reshape(y, (self.l_max, -1))
         else:
             x_k, y_s = scan_SSM(*self.ssm, u[:, jnp.newaxis], self.x_k_1.value)
             if self.is_mutable_collection("cache"):
@@ -323,9 +346,10 @@ class FlaxBiGSLayer(nn.Module):
         self.pre_norm = self.config.pre_norm
         self.decode = self.config.decode
         self.LayerNorm = nn.LayerNorm(epsilon=self.config.layer_norm_eps, dtype=self.dtype)
-        self.fs4 = S4dLayer(N=self.num_ssm, l_max=self.max_seq_length, decode=self.decode)
-        self.bs4 = S4dLayer(N=self.num_ssm, l_max=self.max_seq_length, decode=self.decode)
-
+        self.fs4 = S4dLayer(N=self.num_ssm, l_max=self.max_seq_length, num_ssm_heads=self.config.num_ssm_heads,
+                            decode=self.decode)
+        self.bs4 = S4dLayer(N=self.num_ssm, l_max=self.max_seq_length, num_ssm_heads=self.config.num_ssm_heads,
+                            decode=self.decode)
         self.dv = nn.Dense(
             self.config.intermediate_size,
             kernel_init=jax.nn.initializers.normal(self.config.initializer_range),
@@ -374,14 +398,14 @@ class FlaxBiGSLayer(nn.Module):
             deterministic: bool = True
     ):
 
-        # hidden_states should be max_seq_len * hidden size
+        # hidden_states should be max_seq_len, hidden size
         def apply_s4(hidden_states):
             v = nn.gelu(self.dv(hidden_states))
             u_forward = nn.gelu(self.du_forward(hidden_states))
             u_backward = nn.gelu(self.du_backward(jnp.flip(hidden_states, axis=0)))
             # s4 layers
-            fs4_output = jax.vmap(self.fs4.__call__, in_axes=1, out_axes=1)(u_forward)
-            bs4_output = jax.vmap(self.bs4.__call__, in_axes=1, out_axes=1)(u_backward)
+            fs4_output = self.fs4(u_forward)
+            bs4_output = self.bs4(u_backward)
             # instead of sum, we concat states
             uc_forward = self.duc_forward(fs4_output)
             uc_backward = jnp.flip(self.duc_backward(bs4_output), axis=0)
@@ -781,6 +805,11 @@ class FlaxBiGSForMaskedLM(FlaxBiGSPreTrainedModel):
     module_class = FlaxBiGSForMaskedLMModule
 
 
+append_call_sample_docstring(
+    FlaxBiGSPreTrainedModel, _TOKENIZER_FOR_DOC, _CHECKPOINT_FOR_DOC, FlaxMaskedLMOutput, _CONFIG_FOR_DOC
+)
+
+
 class FlaxBiGSPreTrainingHeads(nn.Module):
     config: BiGSConfig
     dtype: jnp.dtype = jnp.float32
@@ -999,6 +1028,15 @@ class FlaxBiGSForSequenceClassification(FlaxBiGSPreTrainedModel):
     module_class = FlaxBiGSForSequenceClassificationModule
 
 
+append_call_sample_docstring(
+    FlaxBiGSForSequenceClassification,
+    _TOKENIZER_FOR_DOC,
+    _CHECKPOINT_FOR_DOC,
+    FlaxSequenceClassifierOutput,
+    _CONFIG_FOR_DOC,
+)
+
+
 class FlaxBiGSForTokenClassificationModule(nn.Module):
     config: BiGSConfig
     dtype: jnp.dtype = jnp.float32
@@ -1051,6 +1089,12 @@ class FlaxBiGSForTokenClassificationModule(nn.Module):
 )
 class FlaxBiGSForTokenClassification(FlaxBiGSPreTrainedModel):
     module_class = FlaxBiGSForTokenClassificationModule
+
+
+append_call_sample_docstring(
+    FlaxBiGSForTokenClassification, _TOKENIZER_FOR_DOC, _CHECKPOINT_FOR_DOC, FlaxTokenClassifierOutput,
+    _CONFIG_FOR_DOC
+)
 
 
 class FlaxBiGSForQuestionAnsweringModule(nn.Module):
@@ -1108,6 +1152,15 @@ class FlaxBiGSForQuestionAnsweringModule(nn.Module):
 )
 class FlaxBiGSForQuestionAnswering(FlaxBiGSPreTrainedModel):
     module_class = FlaxBiGSForQuestionAnsweringModule
+
+
+append_call_sample_docstring(
+    FlaxBiGSForQuestionAnswering,
+    _TOKENIZER_FOR_DOC,
+    _CHECKPOINT_FOR_DOC,
+    FlaxQuestionAnsweringModelOutput,
+    _CONFIG_FOR_DOC,
+)
 
 
 class FlaxBiGSForMultipleChoiceModule(nn.Module):
