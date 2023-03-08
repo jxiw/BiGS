@@ -1,4 +1,4 @@
-# BiGS
+# BiGS (Pretraining Without Attention)
 
 <img width="537" alt="BiGS" src="https://user-images.githubusercontent.com/16102460/221464744-06b6538a-7e84-4c95-909f-239eab1dba71.png">
 
