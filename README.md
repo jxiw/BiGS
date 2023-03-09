@@ -26,13 +26,13 @@ Sentence length: 512
 
 |**Training Tokens**|**Model**|
 |----------|----------|
-|~130B|[https://huggingface.co/JunxiongWang/BiGS_512](https://huggingface.co/JunxiongWang/BiGS_512)
+|~108B|[https://huggingface.co/JunxiongWang/BiGS_512](https://huggingface.co/JunxiongWang/BiGS_512)
 
 MNLI checkpoint:
 
 |**Training Tokens**|**Model**|
 |----------|----------|
-|~130B|[https://huggingface.co/JunxiongWang/BiGS_512_MNLI](https://huggingface.co/JunxiongWang/BiGS_512_MNLI)
+|~108B|[https://huggingface.co/JunxiongWang/BiGS_512_MNLI](https://huggingface.co/JunxiongWang/BiGS_512_MNLI)
 
 Sentence length: 1024
 
