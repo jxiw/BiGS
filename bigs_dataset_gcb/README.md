@@ -1,6 +1,6 @@
 Most of code is from [academic-budget-bert](https://github.com/IntelLabs/academic-budget-bert)
 
-Here are PreTrainingDataset classes **if you want to download text corpus dynamically from a google cloud bucket and train BiGS with it.** (for example, if you train BiGS using a TPU)
+Here are PreTrainingDataset classes **if you want to download text corpus dynamically (download, train, delete) from a google cloud bucket and train BiGS with it.** (for example, if you train BiGS using a TPU which has limited disk space)
 
 # Pretrain corpus
 

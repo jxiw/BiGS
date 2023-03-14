@@ -1,6 +1,6 @@
 Most of code is from [academic-budget-bert](https://github.com/IntelLabs/academic-budget-bert)
 
-Here are PreTrainingDataset classes **if you want to download text corpus locally and train BiGS with it.**
+Here are PreTrainingDataset classes **if you want to download text corpus to your server and train BiGS with it.**
 
 # Pretrain corpus
 
