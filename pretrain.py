@@ -45,7 +45,9 @@ from tqdm import tqdm
 from BiGS.configuration_bigs import BiGSConfig
 from BiGS.modeling_flax_bigs import FlaxBiGSForMaskedLM
 
-from academic_bert_dataset.pretraining_dataset import PreTrainingDataset
+from bigs_dataset.pretraining_dataset import PreTrainingDataset
+# if you want to train it on TPU, change it to `from bigs_dataset.pretraining_dataset_gcb import PreTrainingDataset`
+
 from transformers import (
     FLAX_MODEL_FOR_MASKED_LM_MAPPING,
     AutoTokenizer,
