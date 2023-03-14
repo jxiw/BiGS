@@ -4,7 +4,7 @@
 
 This repository contains a library for Bidirectional Gated State Space Model (BiGS). BiGS combines SSM layers with a multiplicative gating architecture that has been effective in simplified sequence modeling architectures. 
 
-So far,  BiGS is able to match BERT accuracy on GLUE while it is a **linear** space/memory model. 
+So far,  BiGS is able to match BERT accuracy on GLUE while BiGS is a **linear** space/memory model. 
 
 # Released Models
 
