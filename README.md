@@ -38,11 +38,15 @@ MNLI checkpoint:
 
 Sentence length: 1024
 
-TBA
+|**Training Tokens**|**Model**|
+|----------|----------|
+|~110B|[https://huggingface.co/JunxiongWang/BiGS_1024](https://huggingface.co/JunxiongWang/BiGS_1024)
 
 Sentence length: 4096
 
-TBA
+|**Training Tokens**|**Model**|
+|----------|----------|
+|~110B|[https://huggingface.co/JunxiongWang/BiGS_4096](https://huggingface.co/JunxiongWang/BiGS_4096)
 
 # Pretrain
 
