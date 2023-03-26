@@ -465,14 +465,17 @@ def main():
             contexts1 = [example.split("\n\n")[0].strip() for example in examples[sentence1_key]]
             contexts2 = [example.split("\n\n")[1].strip() for example in examples[sentence1_key]]
             texts = ((contexts1, contexts2))
+            result = tokenizer(*texts, padding="max_length", max_length=data_args.max_seq_length, truncation=True)
         else:
-            texts = (
-                (examples[sentence1_key],) if sentence2_key is None else (
-                    examples[sentence1_key], examples[sentence2_key])
-            )
-        result = tokenizer(*texts, padding="max_length", max_length=data_args.max_seq_length, truncation=True)
-        if data_args.dataset_name == "tau/scrolls" and data_args.dataset_config_name == "contract_nli":
-            result['labels'] = [(label_to_id[out] if out is not None else -1) for out in examples['output']]
+            if sentence2_key is not None:
+                texts = [examples[sentence1_key][idx] + ' [CLS], ' + examples[sentence2_key][idx] for idx in
+                         range(len(examples[sentence1_key]))]
+            else:
+                texts = [examples[sentence1_key][idx] for idx in range(len(examples[sentence1_key]))]
+            # tokenizer texts
+            result = tokenizer(texts, padding="max_length", max_length=data_args.max_seq_length, truncation=True)
+        if data_args.dataset_name == "hyperpartisan_news_detection":
+            result['labels'] = [int(example_label) for example_label in examples['hyperpartisan']]
         else:
             if "label" in examples:
                 if label_to_id is not None:
@@ -599,7 +602,7 @@ def main():
     p_test_step = jax.pmap(test_step, axis_name="batch")
 
     if data_args.task_name is not None:
-        wandb.init(project=f"{data_args.task_name}_BiGS_{model_args.model_name_or_path}")
+        wandb.init(project=f"{data_args.task_name}_BiGS")
     elif data_args.dataset_name == "tau/scrolls":
         wandb.init(project=f"{data_args.dataset_config_name}_BiGS")
     elif data_args.dataset_name is not None:
@@ -735,19 +738,17 @@ def main():
 
             epochs.desc = f"Epoch ... {epoch + 1}/{num_epochs}"
 
-    print(f"best eval {task_metric}: {best_metric_value}")
-
     # save the eval metrics in json
-    # if jax.process_index() == 0:
-    #     # save model
-    #     params = jax.device_get(unreplicate(state.params))
-    #     model.save_pretrained(training_args.output_dir, params=params)
-    #     tokenizer.save_pretrained(training_args.output_dir)
-    #     # save final result
-    #     eval_metric = {f"eval_{metric_name}": value for metric_name, value in eval_metric.items()}
-    #     path = os.path.join(training_args.output_dir, "eval_results.json")
-    #     with open(path, "w") as f:
-    #         json.dump(eval_metric, f, indent=4, sort_keys=True)
+    if jax.process_index() == 0:
+        # save model
+        params = jax.device_get(unreplicate(state.params))
+        model.save_pretrained(training_args.output_dir, params=params)
+        tokenizer.save_pretrained(training_args.output_dir)
+        # save final result
+        eval_metric = {f"eval_{metric_name}": value for metric_name, value in eval_metric.items()}
+        path = os.path.join(training_args.output_dir, "eval_results.json")
+        with open(path, "w") as f:
+            json.dump(eval_metric, f, indent=4, sort_keys=True)
 
     if training_args.do_predict:
         logger.info("*** Predict ***")
