@@ -599,7 +599,7 @@ def main():
     p_test_step = jax.pmap(test_step, axis_name="batch")
 
     if data_args.task_name is not None:
-        wandb.init(project=f"{data_args.task_name}_BiGS_{model_args.model_name_or_path}")
+        wandb.init(project=f"{data_args.task_name}_BiGS")
     elif data_args.dataset_name == "tau/scrolls":
         wandb.init(project=f"{data_args.dataset_config_name}_BiGS")
     elif data_args.dataset_name is not None:
