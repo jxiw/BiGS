@@ -48,6 +48,54 @@ Sentence length: 4096
 |----------|----------|
 |~110B|[https://huggingface.co/JunxiongWang/BiGS_4096](https://huggingface.co/JunxiongWang/BiGS_4096)
 
+# Example Usage
+
+## Load Masked Language Model
+
+```python
+import jax
+from jax import numpy as jnp
+from transformers import BertTokenizer
+from BiGS.modeling_flax_bigs import FlaxBiGSForMaskedLM
+tokenizer = BertTokenizer.from_pretrained('bert-large-uncased')
+model = FlaxBiGSForMaskedLM.from_pretrained('JunxiongWang/BiGS_128')
+text = "The goal of life is [MASK]."
+encoded_input = tokenizer(text, return_tensors='np', padding='max_length', max_length=128)
+output = model(**encoded_input)
+tokenizer.convert_ids_to_tokens(jnp.flip(jnp.argsort(jax.nn.softmax(output.logits[encoded_input['input_ids']==103]))[0])[:10])
+# output: ['happiness', 'love', 'peace', 'perfection', 'life', 'enlightenment', 'god', 'survival', 'freedom', 'good']
+jnp.flip(jnp.sort(jax.nn.softmax(output.logits[encoded_input['input_ids']==103]))[0])[:10]
+# probability: [0.16052087, 0.04306792, 0.03651363, 0.03468223, 0.02927081, 0.02549769, 0.02385132, 0.02261189, 0.01672831, 0.01619471]
+text = "Paris is the [MASK] of France."
+encoded_input = tokenizer(text, return_tensors='np', padding='max_length', max_length=128)
+output = model(**encoded_input)
+tokenizer.convert_ids_to_tokens(jnp.flip(jnp.argsort(jax.nn.softmax(output.logits[encoded_input['input_ids']==103]))[0])[:8])
+# output: ['capital', 'centre', 'center', 'city', 'capitol', 'prefecture', 'headquarters', 'president', 'metropolis', 'heart']
+jnp.flip(jnp.sort(jax.nn.softmax(output.logits[encoded_input['input_ids']==103]))[0])[:10]
+# probability: [0.9981787 , 0.00034076, 0.00026992, 0.00026926, 0.00017787, 0.00004816, 0.00004256, 0.00003716, 0.00003634, 0.00002893]
+``` 
+
+## Load Sequence Classification Model
+
+```python
+from BiGS.modeling_flax_bigs import FlaxBiGSForSequenceClassification
+model = FlaxBiGSForSequenceClassification.from_pretrained('JunxiongWang/BiGS_512')
+```
+
+## Load Question Answering Model
+
+```python
+from BiGS.modeling_flax_bigs import FlaxBiGSForQuestionAnswering
+model = FlaxBiGSForQuestionAnswering.from_pretrained('JunxiongWang/BiGS_512')
+```
+
+## Load Multiple Choice Classification Model
+
+```python
+from BiGS.modeling_flax_bigs import FlaxBiGSForMultipleChoice
+model = FlaxBiGSForMultipleChoice.from_pretrained('JunxiongWang/BiGS_512')
+```
+
 # Pretrain
 
 See [pretrain.md](pretrain.md)
