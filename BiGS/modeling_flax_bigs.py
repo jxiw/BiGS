@@ -40,7 +40,6 @@ from transformers.modeling_flax_outputs import (
 from transformers.modeling_flax_utils import (
     ACT2FN,
     FlaxPreTrainedModel,
-    append_call_sample_docstring,
     append_replace_return_docstrings,
     overwrite_call_docstring,
 )
@@ -805,11 +804,6 @@ class FlaxBiGSForMaskedLM(FlaxBiGSPreTrainedModel):
     module_class = FlaxBiGSForMaskedLMModule
 
 
-append_call_sample_docstring(
-    FlaxBiGSPreTrainedModel, _TOKENIZER_FOR_DOC, _CHECKPOINT_FOR_DOC, FlaxMaskedLMOutput, _CONFIG_FOR_DOC
-)
-
-
 class FlaxBiGSPreTrainingHeads(nn.Module):
     config: BiGSConfig
     dtype: jnp.dtype = jnp.float32
@@ -1028,15 +1022,6 @@ class FlaxBiGSForSequenceClassification(FlaxBiGSPreTrainedModel):
     module_class = FlaxBiGSForSequenceClassificationModule
 
 
-append_call_sample_docstring(
-    FlaxBiGSForSequenceClassification,
-    _TOKENIZER_FOR_DOC,
-    _CHECKPOINT_FOR_DOC,
-    FlaxSequenceClassifierOutput,
-    _CONFIG_FOR_DOC,
-)
-
-
 class FlaxBiGSForTokenClassificationModule(nn.Module):
     config: BiGSConfig
     dtype: jnp.dtype = jnp.float32
@@ -1089,12 +1074,6 @@ class FlaxBiGSForTokenClassificationModule(nn.Module):
 )
 class FlaxBiGSForTokenClassification(FlaxBiGSPreTrainedModel):
     module_class = FlaxBiGSForTokenClassificationModule
-
-
-append_call_sample_docstring(
-    FlaxBiGSForTokenClassification, _TOKENIZER_FOR_DOC, _CHECKPOINT_FOR_DOC, FlaxTokenClassifierOutput,
-    _CONFIG_FOR_DOC
-)
 
 
 class FlaxBiGSForQuestionAnsweringModule(nn.Module):
@@ -1152,15 +1131,6 @@ class FlaxBiGSForQuestionAnsweringModule(nn.Module):
 )
 class FlaxBiGSForQuestionAnswering(FlaxBiGSPreTrainedModel):
     module_class = FlaxBiGSForQuestionAnsweringModule
-
-
-append_call_sample_docstring(
-    FlaxBiGSForQuestionAnswering,
-    _TOKENIZER_FOR_DOC,
-    _CHECKPOINT_FOR_DOC,
-    FlaxQuestionAnsweringModelOutput,
-    _CONFIG_FOR_DOC,
-)
 
 
 class FlaxBiGSForMultipleChoiceModule(nn.Module):
