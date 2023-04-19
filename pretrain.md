@@ -26,7 +26,7 @@ You can first download this corpus to your local server.
 After you download this corpus, you can use the following script to train BiGS with 100k steps.
 
 ```
-python train.py \
+python pretrain.py \
 --output_dir=BiGS_100k/ \
 --dataset_path=PATH_OF_YOUR_TRAIN_CORPUS/ \
 --model_type=s4-bert \
@@ -60,7 +60,7 @@ Then you can train BiGS using the following script for example.
 And please change ```from bigs_dataset.pretraining_dataset import PreTrainingDataset``` in pretrain.py to ```from bigs_dataset.pretraining_dataset_gcb import PreTrainingDataset```
 
 ```
-python train.py \
+python pretrain.py \
 --output_dir=BiGS_100k/ \
 --dataset_path=BUCKET_NAME/CORPUS_FOLDER \
 --model_type=s4-bert \
