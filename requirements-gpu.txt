@@ -5,3 +5,4 @@ jaxlib[cuda11_cudnn82]==0.3.14 # If this fails, follow the official instructions
 flax
 optax
 scikit-learn
+wandb==0.13.4
