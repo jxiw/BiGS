@@ -30,7 +30,7 @@ This repo contains:
 |----------|----------|----------|
 |128|~11B|[BiGS-11B-128](https://drive.google.com/drive/folders/1-nhzeWVgpXwMyNEQ5j-MwJxSzwKyT2an?usp=sharing)
 |128|~29B|[BiGS-29B-128](https://drive.google.com/drive/folders/10Mtl8_XUJb2mmHLyRC9x1wltdIWy6aaP?usp=sharing)
-|128|~97B|[BiGS-11B-128](https://huggingface.co/JunxiongWang/BiGS_128)
+|128|~97B|[BiGS-97B-128](https://huggingface.co/JunxiongWang/BiGS_128)
 |512|~108B|[BiGS-108B-512](https://huggingface.co/JunxiongWang/BiGS_512)
 |1024|~110B|[BiGS-110B-1024](https://huggingface.co/JunxiongWang/BiGS_1024)
 |4096|~110B|[BiGS-110B-4096](https://huggingface.co/JunxiongWang/BiGS_4096)
