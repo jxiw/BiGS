@@ -20,8 +20,17 @@ This repo contains:
 
 ## Setup
 
+You can run our models on both GPUs and TPUs. 
 
-## 
+For TPUs,
+```
+pip install -r requirements-tpu.txt
+```
+
+For GPUs,
+```
+pip install -r requirements-gpu.txt
+```
 
 ## Download Models
 
