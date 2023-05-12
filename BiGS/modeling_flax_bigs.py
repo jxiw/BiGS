@@ -266,6 +266,7 @@ class S4dLayer(nn.Module):
     N: int
     l_max: int
     decode: bool = False
+    scaling: str = "hippo"
 
     # Special parameters with multiplicative factor on lr and no weight decay (handled by main train script)
     lr = {
@@ -276,9 +277,21 @@ class S4dLayer(nn.Module):
 
     def setup(self):
         # Learned Parameters
-        hippo_A_real_initializer, hippo_A_imag_initializer, _, _ = hippo_initializer(self.N)
-        self.A_re = self.param("A_re", hippo_A_real_initializer, (self.N,))
-        self.A_im = self.param("A_im", hippo_A_imag_initializer, (self.N,))
+        if self.scaling == "inv":
+            self.A_re = self.param("A_re", nn.initializers.constant(-0.5), (self.N,))
+            def arange_initializer(scale):
+                return lambda key, shape: (shape[-1] / scale) * (shape[-1] / (2 * jnp.arange(shape[-1]) + 1) - 1)
+            self.A_im = self.param("A_im", arange_initializer(jnp.pi), (self.N,))
+        elif self.scaling == "lin":
+            self.A_re = self.param("A_re", nn.initializers.constant(-0.5), (self.N,))
+            def arange_initializer(scale):
+                return lambda key, shape: scale * jnp.ones(shape) * jnp.arange(shape[-1])
+            self.A_im = self.param("A_im", arange_initializer(jnp.pi), (self.N,))
+        else:
+            # default scaling is hippo
+            hippo_A_real_initializer, hippo_A_imag_initializer, _, _ = hippo_initializer(self.N)
+            self.A_re = self.param("A_re", hippo_A_real_initializer, (self.N,))
+            self.A_im = self.param("A_im", hippo_A_imag_initializer, (self.N,))
         self.A = jnp.clip(self.A_re, None, -1e-4) + 1j * self.A_im
         self.C = self.param("C", normal(stddev=.5 ** .5), (self.N, 2))
         self.C = self.C[..., 0] + 1j * self.C[..., 1]
@@ -322,9 +335,10 @@ class FlaxBiGSLayer(nn.Module):
         self.max_seq_length = self.config.max_position_embeddings
         self.pre_norm = self.config.pre_norm
         self.decode = self.config.decode
+        self.scaling = self.config.scaling
         self.LayerNorm = nn.LayerNorm(epsilon=self.config.layer_norm_eps, dtype=self.dtype)
-        self.fs4 = S4dLayer(N=self.num_ssm, l_max=self.max_seq_length, decode=self.decode)
-        self.bs4 = S4dLayer(N=self.num_ssm, l_max=self.max_seq_length, decode=self.decode)
+        self.fs4 = S4dLayer(N=self.num_ssm, l_max=self.max_seq_length, decode=self.decode, scaling=self.scaling)
+        self.bs4 = S4dLayer(N=self.num_ssm, l_max=self.max_seq_length, decode=self.decode, scaling=self.scaling)
 
         self.dv = nn.Dense(
             self.config.intermediate_size,

@@ -106,6 +106,7 @@ class BiGSConfig(PretrainedConfig):
             num_ssm=64,
             pre_norm=True,
             decode=False,
+            scaling="hippo",
             pooler_type="non_padding_mean",
             **kwargs
     ):
@@ -125,6 +126,7 @@ class BiGSConfig(PretrainedConfig):
         self.use_cache = use_cache
         self.classifier_dropout = classifier_dropout
         self.num_ssm = num_ssm
+        self.scaling = scaling
         self.pre_norm = pre_norm
         self.decode = decode
         self.pooler_type = pooler_type
