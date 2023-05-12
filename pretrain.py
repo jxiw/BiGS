@@ -204,7 +204,7 @@ class ModelArguments:
     )
     intermediate_size: int = field(
         default=4096,
-        metadata={"help": "Hidden size."}
+        metadata={"help": "Intermediate size."}
     )
 
 
@@ -271,6 +271,8 @@ def create_learning_rate_fn(
         decay_fn = optax.cosine_decay_schedule(
             init_value=learning_rate, decay_steps=num_total_train_steps - num_warmup_steps, alpha=cosine_schedule_alpha,
         )
+    else:
+        raise ValueError(f"Invalid schedule_type: {schedule_type}. Supported types are 'constant', 'linear', 'cosine'")
     schedule_fn = optax.join_schedules(schedules=[warmup_fn, decay_fn], boundaries=[num_warmup_steps])
     return schedule_fn
 
