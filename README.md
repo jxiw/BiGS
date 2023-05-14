@@ -1,6 +1,6 @@
 ## Pretraining Without Attention(BiGS)<br><sub>Official JAX Implementation</sub>
 
-### [Paper](https://arxiv.org/abs/2212.10544) | [![Hugging Face Hub](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Hub-blue)](https://huggingface.co/JunxiongWang) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]() 
+### [Paper](https://arxiv.org/abs/2212.10544) | [![Hugging Face Hub](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Hub-blue)](https://huggingface.co/JunxiongWang) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1Fz3OSRF3PZEF_dlnyJ3KZ8Bq35DfUrIB?usp=sharing) 
  
 <img width="537" alt="BiGS" src="https://user-images.githubusercontent.com/16102460/221464744-06b6538a-7e84-4c95-909f-239eab1dba71.png">
 
