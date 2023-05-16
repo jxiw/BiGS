@@ -3,5 +3,6 @@ transformers
 jax[tpu]==0.3.15 # If this fails, follow the official instructions: pip install "jax[tpu]==0.3.15" -f https://storage.googleapis.com/jax-releases/libtpu_releases.html
 flax
 optax
+huggingface_hub
 scikit-learn
 wandb==0.13.4
