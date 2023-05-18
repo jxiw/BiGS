@@ -57,7 +57,7 @@ Due to the limited disk space on TPU, you need to store your data into a Google 
 
 Then you can train BiGS using the following script for example.
 
-And please change ```from bigs_dataset.pretraining_dataset import PreTrainingDataset``` in pretrain.py to ```from bigs_dataset.pretraining_dataset_gcb import PreTrainingDataset```
+And please change ```from bigs_dataset.pretraining_dataset import PreTrainingDataset``` in pretrain.py to ```from bigs_dataset_gcb.pretraining_dataset import PreTrainingDataset```
 
 ```
 python pretrain.py \
