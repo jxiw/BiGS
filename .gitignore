@@ -131,4 +131,5 @@ dmypy.json
 # Customize
 .idea/
 .DS_Store
+wandb/
 tmp/
