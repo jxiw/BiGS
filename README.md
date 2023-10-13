@@ -1,7 +1,7 @@
 ## Pretraining Without Attention(BiGS)
 ## Bidirectional Language Modeling with State Space Model<br>
 
-#### Update Pytorch models converted from JAX
+**Update: Pytorch models converted from JAX**
 
 **Torch Masked Language Model**
 
@@ -21,7 +21,7 @@ model = BiGSForSequenceClassification.from_pretrained('JunxiongWang/BiGS_128')
 
 For GLUE task, please see [GLUE_torch.md](GLUE_torch.md) and [GLUE_torch_freeze.md](GLUE_torch_freeze.md).
 
-#### Official JAX Implementation
+### Official JAX Implementation
 
 ### [Paper](https://arxiv.org/abs/2212.10544) | [![Hugging Face Hub](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Hub-blue)](https://huggingface.co/JunxiongWang) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1Fz3OSRF3PZEF_dlnyJ3KZ8Bq35DfUrIB?usp=sharing) 
  
