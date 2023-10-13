@@ -19,7 +19,7 @@ from BiGS.modeling_bigs import BiGSForSequenceClassification
 model = BiGSForSequenceClassification.from_pretrained('JunxiongWang/BiGS_128')
 ```
 
-For GLUE task, please see [GLUE_torch.md](GLUE_torch.md) and [GLUE_torch_freeze.md](GLUE_torch_freeze.md).
+For GLUE task, please see [GLUE_torch.md](GLUE_torch.md) and [GLUE_torch_freeze.md](GLUE_torch_freeze.md). If you don't want to use MNLI checkpoints to finetune MRPC, RTE, STS-B, please run [GLUE_torch_freeze.md](GLUE_torch_freeze.md).
 
 ### Official JAX Implementation
 
