@@ -108,6 +108,7 @@ class BiGSConfig(PretrainedConfig):
             decode=False,
             scaling="hippo",
             pooler_type="non_padding_mean",
+            use_pykeops_kernel=False,
             **kwargs
     ):
         super().__init__(pad_token_id=pad_token_id, **kwargs)
@@ -130,3 +131,4 @@ class BiGSConfig(PretrainedConfig):
         self.pre_norm = pre_norm
         self.decode = decode
         self.pooler_type = pooler_type
+        self.use_pykeops_kernel = use_pykeops_kernel

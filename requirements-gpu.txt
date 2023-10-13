@@ -1,10 +1,10 @@
 datasets
 transformers
 chex==0.1.6
-flax==0.5.0
+flax==0.4.2
 jax==0.4.7 # If this fails, follow the official instructions: pip install "jax[cuda11_cudnn82]==0.3.14" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-# pip install "jaxlib[cuda11.cudnn82]==0.4.7" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-jaxlib[cuda11.cudnn82]==0.4.7 # If this fails, follow the official instructions: pip install "jaxlib[cuda11.cudnn82]==0.4.4" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+# pip install "jaxlib[cuda12.cudnn88]==0.4.7" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+jaxlib[cuda12.cudnn88]==0.4.7 # If this fails, follow the official instructions: pip install "jaxlib[cuda11.cudnn82]==0.4.4" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 optax==0.1.4
 huggingface_hub
 scikit-learn
