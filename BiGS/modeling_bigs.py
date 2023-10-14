@@ -54,6 +54,8 @@ _r2c = torch.view_as_complex
 BIGS_PRETRAINED_MODEL_ARCHIVE_LIST = [
     "JunxiongWang/BiGS_128",
     "JunxiongWang/BiGS_512",
+    "JunxiongWang/BiGS_1024",
+    "JunxiongWang/BiGS_4096",
     # See all BiGS models at https://huggingface.co/models?filter=BiGS
 ]
 
