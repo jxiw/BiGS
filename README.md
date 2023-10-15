@@ -1,7 +1,7 @@
 ## Pretraining Without Attention(BiGS)
 ## Bidirectional Language Modeling with State Space Model<br>
 
-**Update: Pytorch models converted from JAX**
+**Update: Pytorch models port from JAX**
 
 **Torch Masked Language Model**
 
