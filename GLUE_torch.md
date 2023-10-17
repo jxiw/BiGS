@@ -37,7 +37,7 @@ Without `pykeops` package
 | MNLI  | Matched acc./Mismatched acc. |86.0|
 | QNLI  | Accuracy                     |90.9|
 
-Notice that, our Pytorch MNLI models are port from JAX models. So it has higher accuracy 86.4.
+Notice that, our Pytorch MNLI models are port from JAX models. And it has higher accuracy 86.4 instead of 86.0.
 
 For MRPC, STS-B and RTE, we finetune on the MNLI model
 
