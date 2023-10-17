@@ -5,6 +5,8 @@
 
 **Torch Masked Language Model**
 
+[![Hugging Face Hub](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Hub-blue)](https://huggingface.co/JunxiongWang) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1Fz3OSRF3PZEF_dlnyJ3KZ8Bq35DfUrIB?usp=sharing) 
+
 ```python
 import torch
 from BiGS.modeling_bigs import BiGSForMaskedLM
