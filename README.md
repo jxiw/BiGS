@@ -1,6 +1,8 @@
 ## Pretraining Without Attention(BiGS)
 ## Bidirectional Language Modeling with State Space Model<br>
 
+BiGS is the **first** model to achieve BERT-level transfer learning on the GLUE benchmark with subquadratic complexity in length (or without attention).
+
 ### Pytorch models port from JAX
 
 **Torch Masked Language Model**
