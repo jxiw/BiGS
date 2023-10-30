@@ -1,7 +1,16 @@
 ## Pretraining Without Attention(BiGS)
 ## Bidirectional Language Modeling with State Space Model<br>
 
-BiGS is the **first** model to achieve BERT-level transfer learning on the GLUE benchmark with subquadratic complexity in length (or without attention).
+BiGS is the **first** model to achieve BERT-level transfer learning on the GLUE benchmark with subquadratic complexity in length (or without attention). If you find this project inspiring or use our repository, kindly please cite
+
+```
+@article{wang2022pretraining,
+  title={Pretraining Without Attention},
+  author={Wang, Junxiong and Yan, Jing Nathan and Gu, Albert and Rush, Alexander M},
+  journal={arXiv preprint arXiv:2212.10544},
+  year={2022}
+}
+```
 
 ### Pytorch models port from JAX
 
@@ -174,14 +183,3 @@ See [pretrain.md](pretrain.md)
 ### GLUE
 
 See [GLUE.md](GLUE.md) and [GLUE_freeze.md](GLUE_freeze.md). If you don't want to use MNLI checkpoints to finetune MRPC, RTE, STS-B, please run [GLUE_freeze.md](GLUE_freeze.md).
-
-## Citation
-
-```
-@article{wang2022pretraining,
-  title={Pretraining Without Attention},
-  author={Wang, Junxiong and Yan, Jing Nathan and Gu, Albert and Rush, Alexander M},
-  journal={arXiv preprint arXiv:2212.10544},
-  year={2022}
-}
-```
