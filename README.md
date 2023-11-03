@@ -1,38 +1,4 @@
 ## Pretraining Without Attention(BiGS)
-## Bidirectional Language Modeling with State Space Model<br>
-
-BiGS is the **first** model to achieve BERT-level transfer learning on the GLUE benchmark with subquadratic complexity in length (or without attention). If you find this project inspiring or use our repository, kindly please cite
-
-```
-@article{wang2022pretraining,
-  title={Pretraining Without Attention},
-  author={Wang, Junxiong and Yan, Jing Nathan and Gu, Albert and Rush, Alexander M},
-  journal={arXiv preprint arXiv:2212.10544},
-  year={2022}
-}
-```
-
-### Pytorch models port from JAX
-
-**Torch Masked Language Model**
-
-[![Hugging Face Hub](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Hub-blue)](https://huggingface.co/JunxiongWang) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1qPX2fOX0djv0Ym5Vsyo_YSr16BgR32_h?usp=sharing) 
-
-```python
-import torch
-from BiGS.modeling_bigs import BiGSForMaskedLM
-model = BiGSForMaskedLM.from_pretrained('JunxiongWang/BiGS_128')
-```
-
-**Torch Sequence Classification Model**
-
-```python
-import torch
-from BiGS.modeling_bigs import BiGSForSequenceClassification
-model = BiGSForSequenceClassification.from_pretrained('JunxiongWang/BiGS_128')
-```
-
-For GLUE task, please see [GLUE_torch.md](GLUE_torch.md) and [GLUE_torch_freeze.md](GLUE_torch_freeze.md). If you don't want to use MNLI checkpoints to finetune MRPC, RTE, STS-B, please run [GLUE_torch_freeze.md](GLUE_torch_freeze.md). Notice that torch version has slight worse results compared with Jax version.
 
 ### Official JAX Implementation
 
@@ -183,3 +149,39 @@ See [pretrain.md](pretrain.md)
 ### GLUE
 
 See [GLUE.md](GLUE.md) and [GLUE_freeze.md](GLUE_freeze.md). If you don't want to use MNLI checkpoints to finetune MRPC, RTE, STS-B, please run [GLUE_freeze.md](GLUE_freeze.md).
+
+
+### Pytorch models port from JAX
+
+**Torch Masked Language Model**
+
+[![Hugging Face Hub](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Hub-blue)](https://huggingface.co/JunxiongWang) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1qPX2fOX0djv0Ym5Vsyo_YSr16BgR32_h?usp=sharing) 
+
+```python
+import torch
+from BiGS.modeling_bigs import BiGSForMaskedLM
+model = BiGSForMaskedLM.from_pretrained('JunxiongWang/BiGS_128')
+```
+
+**Torch Sequence Classification Model**
+
+```python
+import torch
+from BiGS.modeling_bigs import BiGSForSequenceClassification
+model = BiGSForSequenceClassification.from_pretrained('JunxiongWang/BiGS_128')
+```
+
+For GLUE task, please see [GLUE_torch.md](GLUE_torch.md) and [GLUE_torch_freeze.md](GLUE_torch_freeze.md). If you don't want to use MNLI checkpoints to finetune MRPC, RTE, STS-B, please run [GLUE_torch_freeze.md](GLUE_torch_freeze.md). Notice that torch version has slight worse results compared with Jax version.
+
+### Reference
+
+BiGS is the **first** model to achieve BERT-level transfer learning on the GLUE benchmark with subquadratic complexity in length (or without attention). If you find this project inspiring or use our repository, kindly please cite
+
+```
+@article{wang2022pretraining,
+  title={Pretraining Without Attention},
+  author={Wang, Junxiong and Yan, Jing Nathan and Gu, Albert and Rush, Alexander M},
+  journal={arXiv preprint arXiv:2212.10544},
+  year={2022}
+}
+```
