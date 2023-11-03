@@ -175,7 +175,7 @@ See [pretrain.md](pretrain.md)
 
 See [GLUE.md](GLUE.md) and [GLUE_freeze.md](GLUE_freeze.md). If you don't want to use MNLI checkpoints to finetune MRPC, RTE, STS-B, please run [GLUE_freeze.md](GLUE_freeze.md).
 
-### Reference
+## Reference
 
 If you find this project inspiring or use our repository, kindly please cite
 
